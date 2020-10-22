@@ -11,7 +11,7 @@ setuptools.setup(
     description="An redis operation proxy package",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/pypa/sampleproject",
+    url="https://github.com/Ed-XCF/redis-cooker",
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
