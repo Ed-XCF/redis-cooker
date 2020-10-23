@@ -3,9 +3,12 @@ import setuptools
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
+with open("requirements.txt", "r") as fh:
+    install_requires = fh.read().splitlines()
+
 setuptools.setup(
     name="redis-cooker",
-    version="2020.10rc1",
+    version="2020.10rc3",
     author="Ed__xu__Ed",
     author_email="m.tofu@qq.com",
     description="An redis operation proxy package",
@@ -15,8 +18,9 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: Apache-2.0 License",
+        "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
     python_requires='>=3.6',
+    install_requires=install_requires,
 )

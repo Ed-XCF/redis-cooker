@@ -3,7 +3,7 @@
 ## Installation
 To install redis-cooker, simply:
 
-    $ pip install xxxxx
+    $ pip install redis-cooker
 
 or from source:
 
@@ -11,7 +11,9 @@ or from source:
     
 ## Getting Started
 
-    >>> import xxxxx
+    >>> from redis_cooker.collections import RedisDict
+    >>> data = RedisDict({"a": 1, "b":2}, key="first:RedisDict")
+    >>> for v in data.values(): print(v)
 
 By default, all responses are returned as `str`.
 

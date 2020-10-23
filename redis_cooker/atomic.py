@@ -3,10 +3,10 @@ from typing import Callable
 
 from redis.client import Script
 
-__all__ = ["lua"]
+__all__ = ["run_as_lua"]
 
 
-def lua(parameter_converter: Callable) -> Callable:
+def run_as_lua(parameter_converter: Callable) -> Callable:
     def create_lua_script(func: Callable) -> Callable:
         @functools.wraps(func)
         def __inner(self, *args, **kwargs) -> None:

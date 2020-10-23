@@ -1,2 +1,6 @@
 __pycache__/
 .idea/
+.pypirc
+build/
+dist/
+redis_cooker.egg-info/

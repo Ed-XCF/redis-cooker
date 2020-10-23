@@ -2,7 +2,7 @@ import uuid
 import itertools
 from collections import abc, UserString, UserList, UserDict
 
-from .atomic import lua
+from .atomic import run_as_lua
 from .mixins import RedisDataMixin
 
 __all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict"]
@@ -11,7 +11,7 @@ __all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict"]
 class RedisMutableSet(RedisDataMixin, abc.MutableSet):
     __class__ = set
 
-    @lua(list)
+    @run_as_lua(list)
     def _init(self, init: __class__) -> None:
         """
         redis.call("DEL", KEYS[1])
@@ -131,7 +131,7 @@ class RedisString(RedisDataMixin, UserString):
 class RedisList(RedisDataMixin, UserList):
     __class__ = list
 
-    @lua(lambda init: init)
+    @run_as_lua(lambda init: init)
     def _init(self, init: __class__) -> None:
         """
         redis.call("DEL", KEYS[1])
@@ -161,7 +161,7 @@ class RedisList(RedisDataMixin, UserList):
     def append(self, item) -> None:
         self.extend([item])
 
-    @lua(lambda index, item: [index if index >= 0 else index - 1, item])
+    @run_as_lua(lambda index, item: [index if index >= 0 else index - 1, item])
     def _redis_insert(self, index: int, item: str) -> None:
         """
         local input_index = tonumber(ARGV[1])
@@ -190,7 +190,7 @@ class RedisList(RedisDataMixin, UserList):
         else:
             self._redis_insert(index, item)
 
-    @lua(lambda index: [index])
+    @run_as_lua(lambda index: [index])
     def _redis_pop(self, index: int) -> str:
         """
         local index = ARGV[1]
@@ -223,7 +223,7 @@ class RedisList(RedisDataMixin, UserList):
     def clear(self) -> None:
         self.redis.delete(self.key)
 
-    @lua(lambda: [])
+    @run_as_lua(lambda: [])
     def reverse(self) -> None:
         """
         local origin = redis.call("LRANGE", KEYS[1], 0, -1)
@@ -239,7 +239,7 @@ class RedisList(RedisDataMixin, UserList):
         """
         pass
 
-    @lua(lambda key=None, reverse=False: [str(key), int(reverse)])
+    @run_as_lua(lambda key=None, reverse=False: [str(key), int(reverse)])
     def sort(self, key=None, reverse=False) -> None:
         """
         local data = redis.call("LRANGE", KEYS[1], 0, -1)
@@ -308,7 +308,7 @@ class RedisList(RedisDataMixin, UserList):
 class RedisDict(RedisDataMixin, UserDict):
     __class__ = dict
 
-    @lua(lambda init: list(itertools.chain.from_iterable(init.items())))
+    @run_as_lua(lambda init: list(itertools.chain.from_iterable(init.items())))
     def _init(self, init: __class__) -> None:
         """
         redis.call("DEL", KEYS[1])
