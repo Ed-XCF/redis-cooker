@@ -239,21 +239,8 @@ class RedisList(RedisDataMixin, UserList):
         """
         pass
 
-    @run_as_lua(lambda reverse=False: [int(reverse)])
     def sort(self, reverse=False) -> None:
-        """
-        local reverse = nil
-        if ARGV[1] == "0"
-        then
-            reverse = "ASC"
-        else
-            reverse = "DESC"
-        end
-        local sorted = redis.call("SORT", KEYS[1], "ALPHA", reverse)
-        redis.call("DEL", KEYS[1])
-        redis.call("RPUSH", KEYS[1], unpack(sorted))
-        """
-        pass
+        self.redis.sort(self.key, desc=reverse, alpha=True, store=self.key)
 
     def __setitem__(self, index, value):
         self.redis.lset(self.key, index, value)
