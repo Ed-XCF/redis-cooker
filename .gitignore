@@ -4,3 +4,4 @@ __pycache__/
 build/
 dist/
 redis_cooker.egg-info/
+.coverage

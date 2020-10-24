@@ -5,7 +5,7 @@ import pytest
 from ..collections import *
 from ..clients import set_connection_url
 
-set_connection_url('redis://:@127.0.0.1:6379/16')
+set_connection_url('redis://:@127.0.0.1:6379/15')
 
 
 class TestRedisMutableSet:
