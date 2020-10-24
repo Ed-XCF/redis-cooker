@@ -2,6 +2,7 @@
 ![GitHub](https://img.shields.io/github/license/Ed-XCF/redis-cooker)
 [![Build Status](https://travis-ci.org/Ed-XCF/redis-cooker.svg?branch=master)](https://travis-ci.org/Ed-XCF/redis-cooker)
 [![codecov](https://codecov.io/gh/Ed-XCF/redis-cooker/branch/master/graph/badge.svg?token=J3HnAigB4J)](undefined)
+![PyPI](https://img.shields.io/pypi/v/redis-cooker)
 ## An redis operation proxy package
 ## Installation
 To install redis-cooker, simply:
