@@ -1,4 +1,3 @@
-env: codecov_token = {{CODECOV_TOKEN}}
 language: python
 python:
   - "3.6"
@@ -12,4 +11,4 @@ cache: pip
 install: pip install -r requirements-dev.txt
 script: coverage run -m pytest -v
 after_success:
-  - codecov -t env.codecov_token
+  - codecov -t [CODECOV_TOKEN]
