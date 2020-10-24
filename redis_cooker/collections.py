@@ -223,7 +223,7 @@ class RedisList(RedisDataMixin, UserList):
     def clear(self) -> None:
         self.redis.delete(self.key)
 
-    @run_as_lua(lambda: [])
+    @run_as_lua(list)
     def reverse(self) -> None:
         """
         local origin = redis.call("LRANGE", KEYS[1], 0, -1)
