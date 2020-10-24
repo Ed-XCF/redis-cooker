@@ -6,9 +6,12 @@ with open("README.md", "r") as fh:
 with open("requirements.txt", "r") as fh:
     install_requires = fh.read().splitlines()
 
+with open("version", "r") as fh:
+    version = fh.read()
+
 setuptools.setup(
     name="redis-cooker",
-    version="2020.10rc4",
+    version=version,
     author="Ed__xu__Ed",
     author_email="m.tofu@qq.com",
     description="An redis operation proxy package",
