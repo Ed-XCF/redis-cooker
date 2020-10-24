@@ -261,9 +261,11 @@ class TestRedisList:
     def test_sort(self):
         l = RedisList(self.original, key=self.key)
         original = copy(self.original)
-
         l.sort()
         original.sort()
+        assert l == original
+        l.sort(reverse=True)
+        original.sort(reverse=True)
         assert l == original
 
     def test___setitem__(self):

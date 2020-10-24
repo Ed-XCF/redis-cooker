@@ -239,37 +239,19 @@ class RedisList(RedisDataMixin, UserList):
         """
         pass
 
-    @run_as_lua(lambda key=None, reverse=False: [str(key), int(reverse)])
-    def sort(self, key=None, reverse=False) -> None:
+    @run_as_lua(lambda reverse=False: [int(reverse)])
+    def sort(self, reverse=False) -> None:
         """
-        local data = redis.call("LRANGE", KEYS[1], 0, -1)
-
-        table.sort(
-            data,
-            function(a, b)
-                local temp_a = nil
-                local temp_b = nil
-
-                if ARGV[1] == "None"
-                then
-                    temp_a = a
-                    temp_b = b
-                else
-                    temp_a = a[ARGV[1]]
-                    temp_b = b[ARGV[1]]
-                end
-
-                if ARGV[2] == "1"
-                then
-                    return temp_a > temp_b
-                else
-                    return temp_a < temp_b
-                end
-            end
-        )
-
+        local reverse = nil
+        if ARGV[1] == "0"
+        then
+            reverse = "ASC"
+        else
+            reverse = "DESC"
+        end
+        local sorted = redis.call("SORT", KEYS[1], "ALPHA", reverse)
         redis.call("DEL", KEYS[1])
-        redis.call("RPUSH", KEYS[1], unpack(data))
+        redis.call("RPUSH", KEYS[1], unpack(sorted))
         """
         pass
 
