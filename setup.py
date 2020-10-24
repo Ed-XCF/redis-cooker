@@ -8,7 +8,7 @@ with open("requirements.txt", "r") as fh:
 
 setuptools.setup(
     name="redis-cooker",
-    version="2020.10rc3",
+    version="2020.10rc4",
     author="Ed__xu__Ed",
     author_email="m.tofu@qq.com",
     description="An redis operation proxy package",
