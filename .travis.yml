@@ -9,6 +9,6 @@ branches:
 services: redis-server
 cache: pip
 install: pip install -r requirements-dev.txt
-script: pytest
+script: pytest -v
 after_success:
   - bash <(curl -s https://codecov.io/bash)
