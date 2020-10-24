@@ -26,8 +26,7 @@ jobs:
         make release
         pip install setuptools wheel twine
     - name: Get version
-      run: |
-        echo $GITHUB_REF | awk -F '/' '{print $3}' >> version
+      run: echo $GITHUB_REF | awk -F '/' '{print $3}' >> version
     - name: Build and publish
       env:
         TWINE_USERNAME: ${{ secrets.PYPI_USERNAME }}
