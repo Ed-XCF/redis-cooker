@@ -1,4 +1,5 @@
 # redis-cooker
+![GitHub](https://img.shields.io/github/license/Ed-XCF/redis-cooker)
 ## An redis operation proxy package
 ## Installation
 To install redis-cooker, simply:
