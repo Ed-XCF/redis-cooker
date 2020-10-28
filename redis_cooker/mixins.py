@@ -1,11 +1,18 @@
 from typing import Optional, Any
 
 from redis.client import Redis
+from pydantic import Json
+from pydantic.dataclasses import dataclass
 
 from .clients import current_redis_client
 from .utils import temporary_key
 
 __all__ = ["RedisDataMixin"]
+
+
+@dataclass
+class _JsonLoader:
+    obj: Json
 
 
 class RedisDataMixin:
@@ -19,10 +26,6 @@ class RedisDataMixin:
 
     def _init(self, init: __class__) -> None:
         pass
-
-    @staticmethod
-    def _decode(element: bytes) -> str:
-        return element.decode("utf-8")
 
     def __del__(self):
         self.redis.close()
@@ -38,3 +41,13 @@ class RedisDataMixin:
         else:
             exc_type is not None and self.init is not None and self.redis.delete(self.key)
             del self
+
+    @staticmethod
+    def loads(data: bytes) -> Dict:
+        return _JsonLoader(obj=data.decode("utf-8")).obj  # noqa
+
+    def dumps(self, data: Dict) -> str:
+        if self.model is None:
+            return str(data)
+
+        return self.model(**data).json()
