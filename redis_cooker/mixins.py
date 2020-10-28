@@ -1,9 +1,9 @@
-import uuid
 from typing import Optional, Any
 
 from redis.client import Redis
 
 from .clients import current_redis_client
+from .utils import temporary_key
 
 __all__ = ["RedisDataMixin"]
 
@@ -11,9 +11,9 @@ __all__ = ["RedisDataMixin"]
 class RedisDataMixin:
     __class__: type = None
 
-    def __init__(self, init=None, *, key: Optional[str] = None):
+    def __init__(self, key: Optional[str] = None, *, init: Optional[Any] = None):
         self.init: Any = init
-        self.key: str = key or str(uuid.uuid4())
+        self.key: str = key or temporary_key()
         self.redis: Redis = current_redis_client()
         self.init and self._init(self.__class__(self.init))  # noqa
 

@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/Ed-XCF/redis-cooker.svg?branch=master)](https://travis-ci.org/Ed-XCF/redis-cooker)
 [![codecov](https://codecov.io/gh/Ed-XCF/redis-cooker/branch/master/graph/badge.svg?token=J3HnAigB4J)](undefined)
 ![PyPI](https://img.shields.io/pypi/v/redis-cooker)
-## An redis operation proxy package
+## An redis python datastructures package
 ## Installation
 To install redis-cooker, simply:
 
@@ -16,7 +16,7 @@ or from source:
 ## Getting Started
 
     >>> from redis_cooker.collections import RedisDict
-    >>> data = RedisDict({"a": 1, "b":2}, key="first:RedisDict")
+    >>> data = RedisDict("first:RedisDict", init={"a": 1, "b":2})
     >>> for v in data.values(): print(v)
 
 By default, all responses are returned as `str`.

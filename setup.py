@@ -14,7 +14,7 @@ setuptools.setup(
     version=version,
     author="Ed__xu__Ed",
     author_email="m.tofu@qq.com",
-    description="An redis operation proxy package",
+    description="An redis python datastructures package.",
     long_description=long_description,
     long_description_content_type="text/markdown",
     url="https://github.com/Ed-XCF/redis-cooker",

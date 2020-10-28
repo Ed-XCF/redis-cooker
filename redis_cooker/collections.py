@@ -1,9 +1,9 @@
-import uuid
 import itertools
 from collections import abc, UserString, UserList, UserDict
 
 from .atomic import run_as_lua
 from .mixins import RedisDataMixin
+from .utils import temporary_key
 
 __all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict"]
 
@@ -14,8 +14,11 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
     @run_as_lua(list)
     def _init(self, init: __class__) -> None:
         """
-        redis.call("DEL", KEYS[1])
-        redis.call("SADD", KEYS[1], unpack(ARGV))
+        if redis.call("SETNX", KEYS[1], "__PLACEHOLDER__") == 1
+        then
+            redis.call("DEL", KEYS[1])
+            redis.call("SADD", KEYS[1], unpack(ARGV))
+        end
         """
         pass
 
@@ -70,7 +73,7 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
 
     def __ixor__(self, other):
         if isinstance(other, type(self)):
-            temp_key1, temp_key2 = str(uuid.uuid4()), str(uuid.uuid4())
+            temp_key1, temp_key2 = temporary_key(), temporary_key()
             with self.redis.pipeline() as pipe:
                 pipe.sdiffstore(temp_key1, [self.key, other.key])
                 pipe.sdiffstore(temp_key2, [other.key, self.key])
@@ -79,7 +82,7 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
                 pipe.delete(temp_key2)
                 pipe.execute()
         else:
-            temp_key1, temp_key2, temp_key3 = str(uuid.uuid4()), str(uuid.uuid4()), str(uuid.uuid4())
+            temp_key1, temp_key2, temp_key3 = temporary_key(), temporary_key(), temporary_key()
             with self.redis.pipeline() as pipe:
                 pipe.sadd(temp_key1, *other)
                 pipe.sdiffstore(temp_key2, [self.key, temp_key1])
@@ -95,7 +98,7 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
         if isinstance(other, type(self)):
             self.redis.sinterstore(self.key, [self.key, other.key])
         else:
-            temp_key = str(uuid.uuid4())
+            temp_key = temporary_key()
             with self.redis.pipeline() as pipe:
                 pipe.sadd(temp_key, *other)
                 pipe.sinterstore(self.key, [self.key, temp_key])
@@ -108,7 +111,7 @@ class RedisString(RedisDataMixin, UserString):
     __class__ = str
 
     def _init(self, init: __class__) -> None:
-        self.redis.set(self.key, init)
+        self.redis.setnx(self.key, init)
 
     @property
     def data(self) -> __class__:
@@ -134,8 +137,11 @@ class RedisList(RedisDataMixin, UserList):
     @run_as_lua(lambda init: init)
     def _init(self, init: __class__) -> None:
         """
-        redis.call("DEL", KEYS[1])
-        redis.call("RPUSH", KEYS[1], unpack(ARGV))
+        if redis.call("SETNX", KEYS[1], "__PLACEHOLDER__") == 1
+        then
+            redis.call("DEL", KEYS[1])
+            redis.call("RPUSH", KEYS[1], unpack(ARGV))
+        end
         """
         pass
 
@@ -280,8 +286,11 @@ class RedisDict(RedisDataMixin, UserDict):
     @run_as_lua(lambda init: list(itertools.chain.from_iterable(init.items())))
     def _init(self, init: __class__) -> None:
         """
-        redis.call("DEL", KEYS[1])
-        redis.call("HMSET", KEYS[1], unpack(ARGV))
+        if redis.call("SETNX", KEYS[1], "__PLACEHOLDER__") == 1
+        then
+            redis.call("DEL", KEYS[1])
+            redis.call("HMSET", KEYS[1], unpack(ARGV))
+        end
         """
         pass
 
@@ -345,7 +354,7 @@ class RedisDict(RedisDataMixin, UserDict):
         if value is None:
             return cls()
         else:
-            return cls(dict.fromkeys(iterable, value))
+            return cls(init=dict.fromkeys(iterable, value))
 
     def __str__(self):
         return str(self.__class__(self.items()))
