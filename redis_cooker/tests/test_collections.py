@@ -3,7 +3,7 @@ from copy import copy
 import pytest
 
 from ..collections import *
-from ..clients import set_connection_url, current_redis_client
+from ..clients import *
 
 set_connection_url('redis://:@127.0.0.1:16379/15')
 client = current_redis_client()
@@ -55,7 +55,7 @@ class TestRedisMutableSet:
         s = RedisMutableSet(self.key, init=self.original)
         original = copy(self.original)
 
-        assert s.add(element) == 1
+        s.add(element)
         original.add(element)
         assert s == original
 
@@ -65,7 +65,7 @@ class TestRedisMutableSet:
         s = RedisMutableSet(self.key, init=self.original)
         original = copy(self.original)
 
-        assert s.discard(element) == 1
+        s.discard(element)
         original.discard(element)
         assert s == original
 
@@ -153,18 +153,6 @@ class TestRedisMutableSet:
         b &= {*self.original, "a"}
         assert b == self.original
 
-    def test___str__(self):
-        client.delete(self.key)
-        a = RedisMutableSet(self.key, init=self.original)
-        original = copy(self.original)
-        assert str(a) == str(original)
-
-    def test___repr__(self):
-        client.delete(self.key)
-        a = RedisMutableSet(self.key, init=self.original)
-        original = copy(self.original)
-        assert repr(a) == repr(original)
-
 
 class TestRedisString:
     key = "Testing:RedisString"
@@ -197,6 +185,14 @@ class TestRedisString:
         s = RedisString(self.key, init=self.original)
         for index, value in enumerate(self.original):
             assert s[index] == value
+
+        assert s[:] == self.original[:]
+        assert s[1:5] == self.original[1:5]
+        assert s[2:-1] == self.original[2:-1]
+        assert s[-1:-5] == self.original[-1:-5]
+        assert s[-5:-1] == self.original[-5:-1]
+        assert s[3:100] == self.original[3:100]
+        assert s[-3:-100] == self.original[-3:-100]
 
 
 class TestRedisList:

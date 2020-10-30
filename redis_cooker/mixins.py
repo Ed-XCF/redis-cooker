@@ -1,8 +1,8 @@
-from typing import Optional, Any
+import json
+from typing import Any, Type
 
 from redis.client import Redis
-from pydantic import Json
-from pydantic.dataclasses import dataclass
+from pydantic import BaseModel
 
 from .clients import current_redis_client
 from .utils import temporary_key
@@ -10,21 +10,18 @@ from .utils import temporary_key
 __all__ = ["RedisDataMixin"]
 
 
-@dataclass
-class _JsonLoader:
-    obj: Json
-
-
 class RedisDataMixin:
     __class__: type = None
 
-    def __init__(self, key: Optional[str] = None, *, init: Optional[Any] = None):
-        self.init: Any = init
+    def __init__(self, key: str = None, *, init: Any = None, model: Type[BaseModel] = None):
         self.key: str = key or temporary_key()
-        self.redis: Redis = current_redis_client()
-        self.init and self._init(self.__class__(self.init))  # noqa
+        self.init = init
+        self.model = model
 
-    def _init(self, init: __class__) -> None:
+        self.redis: Redis = current_redis_client()
+        self.init and self._init(self.init)
+
+    def _init(self, init: Any) -> None:
         pass
 
     def __del__(self):
@@ -42,12 +39,24 @@ class RedisDataMixin:
             exc_type is not None and self.init is not None and self.redis.delete(self.key)
             del self
 
-    @staticmethod
-    def loads(data: bytes) -> Dict:
-        return _JsonLoader(obj=data.decode("utf-8")).obj  # noqa
+    def loads(self, data: bytes) -> Any:
+        loader = getattr(self.model, "parse_raw", json.loads)
+        return loader(data)
 
-    def dumps(self, data: Dict) -> str:
-        if self.model is None:
-            return str(data)
+    def dumps(self, data: Any) -> str:
+        if self.model is not None:
+            data = self.model(**data).dict()
 
-        return self.model(**data).json()
+        return json.dumps(data)
+
+    def bulk_dumps(self, *data: Any):
+        for i in data:
+            yield self.dumps(i)
+
+    def bulk_loads(self, *data: bytes):
+        for i in data:
+            yield self.loads(i)
+
+    def rename(self, new):
+        assert self.redis.renamenx(self.key, new), f"duplicate key name {new}"
+        self.key = new

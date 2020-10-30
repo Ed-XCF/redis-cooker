@@ -1,5 +1,6 @@
 import itertools
 from collections import abc, UserString, UserList, UserDict
+from typing import List, Dict, Set, Any
 
 from .atomic import run_as_lua
 from .mixins import RedisDataMixin
@@ -9,10 +10,8 @@ __all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict"]
 
 
 class RedisMutableSet(RedisDataMixin, abc.MutableSet):
-    __class__ = set
-
-    @run_as_lua(list)
-    def _init(self, init: __class__) -> None:
+    @run_as_lua(lambda self, init: list(self.bulk_dumps(*init)))
+    def _init(self, init: Set) -> None:
         """
         if redis.call("SETNX", KEYS[1], "__PLACEHOLDER__") == 1
         then
@@ -22,56 +21,56 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
         """
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.redis.scard(self.key)
 
     def __iter__(self):
         for i in self.redis.sscan_iter(self.key):
-            yield self._decode(i)
+            yield self.loads(i)
 
-    def __contains__(self, item):
-        return self.redis.sismember(self.key, item)
+    def __contains__(self, item) -> bool:
+        return self.redis.sismember(self.key, self.dumps(item))
 
-    def add(self, element) -> int:
-        return self.redis.sadd(self.key, element)
+    def add(self, element) -> None:
+        self.redis.sadd(self.key, self.dumps(element))
 
-    def discard(self, element) -> int:
-        return self.redis.srem(self.key, element)
+    def discard(self, element) -> None:
+        self.redis.srem(self.key, self.dumps(element))
 
     def clear(self) -> None:
         self.redis.delete(self.key)
 
     def bulk_discard(self, *element) -> int:
-        return self.redis.srem(self.key, *element)
+        return self.redis.srem(self.key, *self.bulk_dumps(*element))
 
     def update(self, *element) -> None:
-        self.redis.sadd(self.key, *element)
+        self.redis.sadd(self.key, *self.bulk_dumps(*element))
 
-    def __str__(self):
-        return str(self.__class__(self))
+    def __str__(self) -> str:
+        return str(set(self))
 
-    def __repr__(self):
-        return repr(self.__class__(self))
+    def __repr__(self) -> str:
+        return repr(set(self))
 
     @classmethod
-    def _from_iterable(cls, it):
-        return cls.__class__(it)
+    def _from_iterable(cls, it) -> Set:
+        return set(it)
 
-    def __isub__(self, other):
+    def __isub__(self, other) -> "RedisMutableSet":
         if isinstance(other, type(self)):
             self.redis.sdiffstore(self.key, [self.key, other.key])
         else:
             self.bulk_discard(*other)
         return self
 
-    def __ior__(self, other):
+    def __ior__(self, other) -> "RedisMutableSet":
         if isinstance(other, type(self)):
             self.redis.sunionstore(self.key, [self.key, other.key])
         else:
             self.update(*other)
         return self
 
-    def __ixor__(self, other):
+    def __ixor__(self, other) -> "RedisMutableSet":
         if isinstance(other, type(self)):
             temp_key1, temp_key2 = temporary_key(), temporary_key()
             with self.redis.pipeline() as pipe:
@@ -84,7 +83,7 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
         else:
             temp_key1, temp_key2, temp_key3 = temporary_key(), temporary_key(), temporary_key()
             with self.redis.pipeline() as pipe:
-                pipe.sadd(temp_key1, *other)
+                pipe.sadd(temp_key1, *self.bulk_dumps(*other))
                 pipe.sdiffstore(temp_key2, [self.key, temp_key1])
                 pipe.sdiffstore(temp_key3, [temp_key1, self.key])
                 pipe.sunionstore(self.key, [temp_key2, temp_key3])
@@ -94,13 +93,13 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
                 pipe.execute()
         return self
 
-    def __iand__(self, other):
+    def __iand__(self, other) -> "RedisMutableSet":
         if isinstance(other, type(self)):
             self.redis.sinterstore(self.key, [self.key, other.key])
         else:
             temp_key = temporary_key()
             with self.redis.pipeline() as pipe:
-                pipe.sadd(temp_key, *other)
+                pipe.sadd(temp_key, *self.bulk_dumps(*other))
                 pipe.sinterstore(self.key, [self.key, temp_key])
                 pipe.delete(temp_key)
                 pipe.execute()
@@ -110,32 +109,19 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):
 class RedisString(RedisDataMixin, UserString):
     __class__ = str
 
-    def _init(self, init: __class__) -> None:
+    def _init(self, init: str) -> None:
         self.redis.setnx(self.key, init)
 
     @property
-    def data(self) -> __class__:
-        return self._decode(self.redis.get(self.key))
-
-    def __iter__(self):
-        for i in self.data:
-            yield i
-
-    def __len__(self):
-        return self.redis.strlen(self.key)
-
-    def __reversed__(self):
-        return reversed(self.data)
-
-    def __getitem__(self, index):
-        return self._decode(self.redis.getrange(self.key, index, index))
+    def data(self) -> str:
+        return self.redis.get(self.key).decode("utf-8")
 
 
 class RedisList(RedisDataMixin, UserList):
     __class__ = list
 
-    @run_as_lua(lambda init: init)
-    def _init(self, init: __class__) -> None:
+    @run_as_lua(lambda self, init: list(self.bulk_dumps(*init)))
+    def _init(self, init: List) -> None:
         """
         if redis.call("SETNX", KEYS[1], "__PLACEHOLDER__") == 1
         then
@@ -147,27 +133,27 @@ class RedisList(RedisDataMixin, UserList):
 
     def __iter__(self):
         for i in self.redis.lrange(self.key, 0, -1):
-            yield self._decode(i)
+            yield self.loads(i)
 
     @property
-    def data(self) -> __class__:
-        return self.__class__(self)
+    def data(self) -> List:
+        return list(self)
 
     def extend(self, other) -> None:
-        self.redis.rpush(self.key, *other)
+        self.redis.rpush(self.key, *self.bulk_dumps(*other))
 
-    def __iadd__(self, other):
+    def __iadd__(self, other) -> "RedisList":
         self.extend(other)
         return self
 
-    def __imul__(self, n):
+    def __imul__(self, n) -> "RedisList":
         self.extend(self.data * (n - 1))
         return self
 
     def append(self, item) -> None:
         self.extend([item])
 
-    @run_as_lua(lambda index, item: [index if index >= 0 else index - 1, item])
+    @run_as_lua(lambda self, index, item: [index if index >= 0 else index - 1, item])
     def _redis_insert(self, index: int, item: str) -> None:
         """
         local input_index = tonumber(ARGV[1])
@@ -192,12 +178,12 @@ class RedisList(RedisDataMixin, UserList):
 
     def insert(self, index: int, item: str) -> None:
         if index == 0:
-            self.redis.lpush(self.key, item)
+            self.redis.lpush(self.key, self.dumps(item))
         else:
-            self._redis_insert(index, item)
+            self._redis_insert(index, self.dumps(item))
 
-    @run_as_lua(lambda index: [index])
-    def _redis_pop(self, index: int) -> str:
+    @run_as_lua(lambda self, index: [index])
+    def _redis_pop(self, index: int) -> bytes:
         """
         local index = ARGV[1]
         if index == "-1"
@@ -213,7 +199,7 @@ class RedisList(RedisDataMixin, UserList):
         """
         pass
 
-    def pop(self, index: int = -1) -> str:
+    def pop(self, index: int = -1) -> Any:
         if index == -1:
             element = self.redis.rpop(self.key)
         elif index == 0:
@@ -221,15 +207,15 @@ class RedisList(RedisDataMixin, UserList):
         else:
             element = self._redis_pop(index)
 
-        return self._decode(element)
+        return self.loads(element)
 
     def remove(self, item) -> None:
-        self.redis.lrem(self.key, 1, item)
+        self.redis.lrem(self.key, 1, self.dumps(item))
 
     def clear(self) -> None:
         self.redis.delete(self.key)
 
-    @run_as_lua(list)
+    @run_as_lua(lambda self: [])
     def reverse(self) -> None:
         """
         local origin = redis.call("LRANGE", KEYS[1], 0, -1)
@@ -248,43 +234,34 @@ class RedisList(RedisDataMixin, UserList):
     def sort(self, reverse=False) -> None:
         self.redis.sort(self.key, desc=reverse, alpha=True, store=self.key)
 
-    def __setitem__(self, index, value):
-        self.redis.lset(self.key, index, value)
+    def __setitem__(self, index, value) -> None:
+        self.redis.lset(self.key, index, self.dumps(value))
 
-    def __delitem__(self, index):
+    def __delitem__(self, index) -> None:
         self.pop(index)
 
-    def __reversed__(self):
-        return reversed(self.data)
-
-    def __len__(self):
+    def __len__(self) -> int:
         return self.redis.llen(self.key)
 
-    def __getitem__(self, index):
+    def __getitem__(self, index) -> Any:
         if not isinstance(index, slice):
-            return self._decode(self.redis.lrange(self.key, index, index)[0])
+            return self.loads(self.redis.lrange(self.key, index, index)[0])
 
         if index.start is None and index.stop is None:
             return self.data
 
-        start = index.start or 0
-        stop = index.stop or 0
-
-        return [
-            self._decode(i)
-            for i in self.redis.lrange(
-                self.key,
-                start,
-                stop - 1,
-            )
-        ]
+        start, stop = index.start or 0, (index.stop or 0) - 1
+        return list(self.bulk_loads(*self.redis.lrange(self.key, start, stop)))
 
 
 class RedisDict(RedisDataMixin, UserDict):
     __class__ = dict
 
-    @run_as_lua(lambda init: list(itertools.chain.from_iterable(init.items())))
-    def _init(self, init: __class__) -> None:
+    @run_as_lua(lambda self, init: list(itertools.chain.from_iterable((
+        (k, self.dumps(v))
+         for k, v in init.items()
+    ))))
+    def _init(self, init: Dict) -> None:
         """
         if redis.call("SETNX", KEYS[1], "__PLACEHOLDER__") == 1
         then
@@ -294,15 +271,15 @@ class RedisDict(RedisDataMixin, UserDict):
         """
         pass
 
-    def __len__(self):
+    def __len__(self) -> int:
         return self.redis.hlen(self.key)
 
-    def __contains__(self, item):
+    def __contains__(self, item) -> bool:
         return self.redis.hexists(self.key, item)
 
     def items(self):
         for k, v in self.redis.hscan_iter(self.key):
-            yield self._decode(k), self._decode(v)
+            yield k.decode("utf-8"), self.loads(v)
 
     def __iter__(self):
         for k, _ in self.items():
@@ -312,13 +289,14 @@ class RedisDict(RedisDataMixin, UserDict):
         for _, v in self.items():
             yield v
 
-    def __getitem__(self, item):
-        try:
-            return self._decode(self.redis.hget(self.key, item))
-        except AttributeError:
+    def __getitem__(self, item) -> Any:
+        value = self.redis.hget(self.key, item)
+        if value is None:
             raise KeyError(item)
 
-    def __eq__(self, other):
+        return self.loads(value)
+
+    def __eq__(self, other) -> bool:
         if isinstance(other, type(self)):
             return self.key == other.key
         elif isinstance(other, abc.Mapping):
@@ -326,38 +304,35 @@ class RedisDict(RedisDataMixin, UserDict):
         else:
             return False
 
-    def __setitem__(self, key, value):
-        self.redis.hset(self.key, key, value)
+    def __setitem__(self, key, value) -> None:
+        self.redis.hset(self.key, key, self.dumps(value))
 
-    def __delitem__(self, key):
+    def __delitem__(self, key) -> None:
         self.redis.hdel(self.key, key)
 
     def clear(self) -> None:
         self.redis.delete(self.key)
 
     @property
-    def data(self) -> __class__:
-        return self.__class__(self.items())
+    def data(self) -> Dict:
+        return dict(self.items())
 
-    def update(*args, **kwds):
-        if not args:
-            raise TypeError("descriptor 'update' of 'MutableMapping' object needs an argument")
-        self, *args = args
+    def update(self, *args, **kwds) -> None:
         if len(args) > 1:
             raise TypeError(f"update expected at most 1 arguments, got {len(args)}")
 
         args and kwds.update(args[0])
-        kwds and self.redis.hmset(self.key, kwds)
+        kwds and self.redis.hmset(self.key, {k: self.dumps(v) for k, v in kwds.items()})
 
     @classmethod
-    def fromkeys(cls, iterable, value = None):
+    def fromkeys(cls, iterable, value = None) -> "RedisDict":
         if value is None:
             return cls()
         else:
             return cls(init=dict.fromkeys(iterable, value))
 
-    def __str__(self):
-        return str(self.__class__(self.items()))
+    def __str__(self) -> str:
+        return str(dict(self.items()))
 
-    def __repr__(self):
-        return repr(self.__class__(self.items()))
+    def __repr__(self) -> str:
+        return repr(dict(self.items()))
