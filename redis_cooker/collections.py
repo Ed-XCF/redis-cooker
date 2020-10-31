@@ -2,6 +2,8 @@ import itertools
 from collections import abc, UserString, UserList, UserDict
 from typing import List, Dict, Set, Any
 
+from redis.exceptions import ResponseError
+
 from .atomic import run_as_lua
 from .mixins import RedisDataMixin
 from .utils import temporary_key
@@ -9,7 +11,7 @@ from .utils import temporary_key
 __all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict"]
 
 
-class RedisMutableSet(RedisDataMixin, abc.MutableSet):
+class RedisMutableSet(RedisDataMixin, abc.MutableSet):  # fixme: need TypeError: unhashable type: 'dict'   check hash
     @run_as_lua(lambda self, init: list(self.bulk_dumps(*init)))
     def _init(self, init: Set) -> None:
         """
@@ -114,7 +116,7 @@ class RedisString(RedisDataMixin, UserString):
 
     @property
     def data(self) -> str:
-        return self.redis.get(self.key).decode("utf-8")
+        return (self.redis.get(self.key) or b"").decode("utf-8")
 
 
 class RedisList(RedisDataMixin, UserList):
@@ -235,10 +237,24 @@ class RedisList(RedisDataMixin, UserList):
         self.redis.sort(self.key, desc=reverse, alpha=True, store=self.key)
 
     def __setitem__(self, index, value) -> None:
-        self.redis.lset(self.key, index, self.dumps(value))
+        try:
+            self.redis.lset(self.key, index, self.dumps(value))
+        except ResponseError as e:
+            if str(e) in ("no such key", "index out of range"):
+                _ = [][0]
+            raise
 
     def __delitem__(self, index) -> None:
-        self.pop(index)
+        try:
+            self.pop(index)
+        except TypeError as e:
+            if str(e) == "the JSON object must be str, bytes or bytearray, not 'NoneType'":
+                del [][index]
+            raise
+        except ResponseError as e:
+            if str(e).endswith("ERR index out of range "):
+                del [][index]
+            raise
 
     def __len__(self) -> int:
         return self.redis.llen(self.key)
@@ -292,7 +308,7 @@ class RedisDict(RedisDataMixin, UserDict):
     def __getitem__(self, item) -> Any:
         value = self.redis.hget(self.key, item)
         if value is None:
-            raise KeyError(item)
+            _ = {}[item]
 
         return self.loads(value)
 
@@ -308,7 +324,8 @@ class RedisDict(RedisDataMixin, UserDict):
         self.redis.hset(self.key, key, self.dumps(value))
 
     def __delitem__(self, key) -> None:
-        self.redis.hdel(self.key, key)
+        if self.redis.hdel(self.key, key) == 0:
+            del {}[key]
 
     def clear(self) -> None:
         self.redis.delete(self.key)

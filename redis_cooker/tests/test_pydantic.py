@@ -1,12 +1,13 @@
 import enum
 from typing import List
 
+import pytest
 from pydantic import BaseModel
 
-from ..collections import RedisDict
+from ..collections import *
 from ..clients import *
 
-set_connection_url('redis://:@127.0.0.1:16379/15')
+set_connection_url('redis://:@127.0.0.1:6379/15')
 client = current_redis_client()
 
 
@@ -27,11 +28,10 @@ class Group(BaseModel):
 
 
 class TestPydantic:
-    key = "Testing:RedisDict"
+    key = "Testing:Pydantic"
 
     def test_redis_dict(self):
         client.delete(self.key)
-
         original = {
             "group_a": {
                 "members": [
@@ -64,4 +64,81 @@ class TestPydantic:
         }
         d = RedisDict(self.key, init=original, model=Group)
         for k, v in original.items():
-            assert d[k] == Group(**v)
+            assert d[k] == Group(**v).dict()
+
+    def test_redis_list(self):
+        client.delete(self.key)
+        original = [
+            {
+                "name": "A",
+                "age": 15,
+                "sex": Sex.MALE,
+            },
+            {
+                "name": "B",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+            {
+                "name": "C",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+            {
+                "name": "D",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+            {
+                "name": "E",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+        ]
+        l = RedisList(self.key, model=Person)
+        for index, value in enumerate(original):
+            with pytest.raises(IndexError):
+                l[index] = value
+            l.append(value)
+            assert l[index] == Person(**value).dict()
+
+        assert l[1:-1] == [Person(**i).dict() for i in original[1:-1]]
+
+    def test_redis_mutable_set(self):
+        client.delete(self.key)
+        original = [
+            {
+                "name": "A",
+                "age": 15,
+                "sex": Sex.MALE,
+            },
+            {
+                "name": "B",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+            {
+                "name": "C",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+            {
+                "name": "D",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+            {
+                "name": "E",
+                "age": "16",
+                "sex": Sex.FEMALE,
+            },
+        ]
+
+        s = RedisMutableSet(self.key, init=original, model=Person)
+        for i in original:
+            temp = Person(**i).dict()
+            assert temp in s
+            s.add(i)
+            assert temp in s
+            s.remove(i)
+            assert temp not in s

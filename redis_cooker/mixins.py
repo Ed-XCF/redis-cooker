@@ -40,8 +40,10 @@ class RedisDataMixin:
             del self
 
     def loads(self, data: bytes) -> Any:
-        loader = getattr(self.model, "parse_raw", json.loads)
-        return loader(data)
+        if self.model is None:
+            return json.loads(data)
+
+        return self.model.parse_raw(data).dict()
 
     def dumps(self, data: Any) -> str:
         if self.model is not None:

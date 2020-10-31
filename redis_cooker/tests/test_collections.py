@@ -5,7 +5,7 @@ import pytest
 from ..collections import *
 from ..clients import *
 
-set_connection_url('redis://:@127.0.0.1:16379/15')
+set_connection_url('redis://:@127.0.0.1:6379/15')
 client = current_redis_client()
 
 
@@ -185,7 +185,6 @@ class TestRedisString:
         s = RedisString(self.key, init=self.original)
         for index, value in enumerate(self.original):
             assert s[index] == value
-
         assert s[:] == self.original[:]
         assert s[1:5] == self.original[1:5]
         assert s[2:-1] == self.original[2:-1]
@@ -193,6 +192,15 @@ class TestRedisString:
         assert s[-5:-1] == self.original[-5:-1]
         assert s[3:100] == self.original[3:100]
         assert s[-3:-100] == self.original[-3:-100]
+
+    def test_data(self):
+        client.delete(self.key)
+        s = RedisString(self.key)
+        assert s == ""
+
+        client.delete(self.key)
+        for index, value in enumerate(RedisString(self.key, init=self.original)):
+            assert value == self.original[index]
 
 
 class TestRedisList:
@@ -322,6 +330,14 @@ class TestRedisList:
             original[index] = item
             assert l == original
 
+        client.delete(self.key)
+        l = RedisList(self.key)
+        with pytest.raises(IndexError):
+            l[0] = "H"
+        l.append("oops")
+        with pytest.raises(IndexError):
+            l[10] = "H"
+
     def test___delitem__(self):
         for index in [-2, -1, 0, 1]:
             client.delete(self.key)
@@ -330,6 +346,14 @@ class TestRedisList:
             del l[index]
             del original[index]
             assert l == original
+
+        client.delete(self.key)
+        l = RedisList(self.key)
+        with pytest.raises(IndexError):
+            del l[0]
+        l.append("oops")
+        with pytest.raises(IndexError):
+            del l[10]
 
     def test___reversed__(self):
         client.delete(self.key)
@@ -353,6 +377,18 @@ class TestRedisList:
         assert l[-5:-1] == original[-5:-1]
         assert l[3:100] == original[3:100]
         assert l[-3:-100] == original[-3:-100]
+
+        client.delete(self.key)
+        l = RedisList(self.key)
+        assert l[:] == []
+        assert l[1:5] == []
+        with pytest.raises(IndexError):
+            _ = l[0]
+
+    def test_data(self):
+        client.delete(self.key)
+        l = RedisList(self.key)
+        assert l == []
 
 
 class TestRedisDict:
@@ -423,6 +459,9 @@ class TestRedisDict:
             del d[i]
             del original[i]
         assert d == original
+
+        with pytest.raises(KeyError):
+            del d["oops"]
 
     def test_clear(self):
         client.delete(self.key)
