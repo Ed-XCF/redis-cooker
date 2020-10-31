@@ -17,7 +17,7 @@ def run_as_lua(parameter_converter: Callable) -> Callable:
                 script: Script = self.redis.register_script(func.__doc__)
                 setattr(func, lua_attr, script)
 
-            return script(keys=[self.key], args=parameter_converter(*args, **kwargs))
+            return script(keys=[self.key], args=parameter_converter(self, *args, **kwargs))
 
         return __inner
 
