@@ -69,6 +69,8 @@ class TestPydantic:
         d = RedisDict(self.key, init=original, schema=Group)
         for k, v in original.items():
             assert d[k] == Group(**v).dict()
+        str(d)
+        repr(d)
 
     def test_redis_list(self):
         client.delete(self.key)
@@ -107,6 +109,8 @@ class TestPydantic:
             assert l[index] == Person(**value).dict()
 
         assert l[1:-1] == [Person(**i).dict() for i in original[1:-1]]
+        str(l)
+        repr(l)
 
     def test_redis_mutable_set(self):
         client.delete(self.key)
@@ -149,4 +153,5 @@ class TestPydantic:
 
         client.delete(self.key)
         s = RedisMutableSet(self.key, init=original, schema=Persons)
-        assert s == original
+        str(s)
+        repr(s)

@@ -11,7 +11,7 @@ from .utils import temporary_key
 __all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict"]
 
 
-class RedisMutableSet(RedisDataMixin, abc.MutableSet):  # fixme: need TypeError: unhashable type: 'dict'   check hash
+class RedisMutableSet(RedisDataMixin, abc.MutableSet):
     @run_as_lua(lambda self, init: list(self.bulk_dumps(*init)))
     def _init(self, init: Set) -> None:
         """
@@ -49,10 +49,10 @@ class RedisMutableSet(RedisDataMixin, abc.MutableSet):  # fixme: need TypeError:
         self.redis.sadd(self.key, *self.bulk_dumps(*element))
 
     def __str__(self) -> str:
-        return str(set(self))
+        return "{" + ", ".join(str(i) for i in self) + "}"
 
     def __repr__(self) -> str:
-        return repr(set(self))
+        return str(self)
 
     @classmethod
     def _from_iterable(cls, it) -> Set:
