@@ -2,4 +2,4 @@ import uuid
 
 
 def temporary_key() -> str:
-    return f"RedisCooker:TemporaryKey:{uuid.uuid4()}"
+    return f"RedisCooker:Temporary:{uuid.uuid4()}"

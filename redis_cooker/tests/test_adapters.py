@@ -27,6 +27,10 @@ class Group(BaseModel):
     members: List[Person]
 
 
+class Persons(BaseModel):
+    __root__: List[Person]
+
+
 class TestPydantic:
     key = "Testing:Pydantic"
 
@@ -62,7 +66,7 @@ class TestPydantic:
                 ]
             },
         }
-        d = RedisDict(self.key, init=original, model=Group)
+        d = RedisDict(self.key, init=original, schema=Group)
         for k, v in original.items():
             assert d[k] == Group(**v).dict()
 
@@ -95,7 +99,7 @@ class TestPydantic:
                 "sex": Sex.FEMALE,
             },
         ]
-        l = RedisList(self.key, model=Person)
+        l = RedisList(self.key, schema=Person)
         for index, value in enumerate(original):
             with pytest.raises(IndexError):
                 l[index] = value
@@ -134,7 +138,7 @@ class TestPydantic:
             },
         ]
 
-        s = RedisMutableSet(self.key, init=original, model=Person)
+        s = RedisMutableSet(self.key, init=original, schema=Person)
         for i in original:
             temp = Person(**i).dict()
             assert temp in s
@@ -142,3 +146,7 @@ class TestPydantic:
             assert temp in s
             s.remove(i)
             assert temp not in s
+
+        client.delete(self.key)
+        s = RedisMutableSet(self.key, init=original, schema=Persons)
+        assert s == original
