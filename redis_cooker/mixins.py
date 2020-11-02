@@ -1,5 +1,7 @@
 import json
-from typing import Any, Optional
+import operator
+import functools
+from typing import Any, Optional, Union, Callable
 
 from redis.client import Redis
 
@@ -40,43 +42,29 @@ class RedisDataMixin:
             exc_type is not None and self.init and self.redis.delete(self.key)
             del self
 
-    def loads(self, data: bytes) -> Any:
+    def __adaptation_chain(self, action: str, data: Union[Any, bytes]) -> Union[Any, str]:
+        caller = operator.methodcaller(action, data)
+
         if self.adapted_schema is not None:
-            return self.adapted_schema.loads(data)
+            return caller(self.adapted_schema)
 
         for adapter in BaseAdapter.__subclasses__():
             target = adapter(self.schema)
             try:
-                _data = target.loads(data)
+                _data = caller(target)
             except Exception:  # noqa
                 continue
             else:
                 break
         else:
             target = json
-            _data = target.loads(data)
+            _data = caller(target)
 
         self.adapted_schema = target
         return _data
 
-    def dumps(self, data: Any) -> str:
-        if self.adapted_schema is not None:
-            return self.adapted_schema.dumps(data)
-
-        for adapter in BaseAdapter.__subclasses__():
-            target = adapter(self.schema)
-            try:
-                _data = target.dumps(data)
-            except Exception:  # noqa
-                continue
-            else:
-                break
-        else:
-            target = json
-            _data = target.dumps(data)
-
-        self.adapted_schema = target
-        return _data
+    dumps: Callable = functools.partialmethod(__adaptation_chain, "dumps")
+    loads: Callable = functools.partialmethod(__adaptation_chain, "loads")
 
     def bulk_dumps(self, *data: Any):
         for i in data:
