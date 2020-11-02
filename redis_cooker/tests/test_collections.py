@@ -153,6 +153,16 @@ class TestRedisMutableSet:
         b &= {*self.original, "a"}
         assert b == self.original
 
+    def test___str__(self):
+        client.delete(self.key)
+        s = RedisMutableSet(self.key, init=self.original)
+        str(s)
+
+    def test___repr__(self):
+        client.delete(self.key)
+        s = RedisMutableSet(self.key, init=self.original)
+        repr(s)
+
 
 class TestRedisString:
     key = "Testing:RedisString"

@@ -1,2 +1,1 @@
 redis==3.5.3
-pydantic[email]>=1.7
