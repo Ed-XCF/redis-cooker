@@ -17,13 +17,15 @@ class BaseAdapter(metaclass=ABCMeta):
 
 
 class PydanticAdapter(BaseAdapter):
+    root = "__root__"
+
     def loads(self, data: bytes) -> Any:
         _data: Dict = self.adaptee.parse_raw(data).dict()
-        return _data.get("__root__", _data)
+        return _data.get(self.root, _data)
 
     def dumps(self, data: Any) -> str:
         if self.adaptee.__custom_root_type__:
-            data = {"__root__": data}
+            data = {self.root: data}
 
         if self.adaptee.Config.orm_mode:
             factory = self.adaptee.from_orm
