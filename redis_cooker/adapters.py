@@ -39,4 +39,4 @@ class DRFAdapter(BaseAdapter):
         return serializer.validated_data
 
     def dumps(self, data: Any) -> str:
-        return self.adaptee(data).data
+        return json.dumps(self.adaptee(data).data)
