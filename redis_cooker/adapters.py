@@ -1,6 +1,6 @@
 import json
 from abc import ABCMeta, abstractmethod
-from typing import Any
+from typing import Any, Dict
 
 
 class BaseAdapter(metaclass=ABCMeta):
@@ -18,7 +18,8 @@ class BaseAdapter(metaclass=ABCMeta):
 
 class PydanticAdapter(BaseAdapter):
     def loads(self, data: bytes) -> Any:
-        return self.adaptee.parse_raw(data).dict()
+        _data: Dict = self.adaptee.parse_raw(data).dict()
+        return _data.get("__root__", _data)
 
     def dumps(self, data: Any) -> str:
         if self.adaptee.__custom_root_type__:
