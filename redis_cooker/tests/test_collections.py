@@ -6,7 +6,7 @@ import pytest
 from ..collections import *
 from ..clients import *
 
-set_connection_url('redis://:@127.0.0.1:16379/15')
+set_connection_url('redis://:@127.0.0.1:6379/15')
 client = current_redis_client()
 
 
