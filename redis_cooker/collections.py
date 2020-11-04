@@ -1,5 +1,5 @@
 import itertools
-from collections import abc, UserString, UserList, UserDict
+from collections import abc, UserString, UserList, UserDict, deque, defaultdict
 from typing import List, Dict, Set, Any
 
 from redis.exceptions import ResponseError
@@ -8,7 +8,7 @@ from .atomic import run_as_lua
 from .mixins import RedisDataMixin
 from .utils import temporary_key
 
-__all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict"]
+__all__ = ["RedisMutableSet", "RedisString", "RedisList", "RedisDict", "RedisDeque", "RedisDefaultDict"]
 
 
 class RedisMutableSet(RedisDataMixin, abc.MutableSet):
@@ -236,25 +236,106 @@ class RedisList(RedisDataMixin, UserList):
     def sort(self, reverse=False) -> None:
         self.redis.sort(self.key, desc=reverse, alpha=True, store=self.key)
 
+    @run_as_lua(lambda self, index, value: [index.start or 0, index.stop or -1, index.step or 1, *self.bulk_dumps(*value)])
+    def _redis__setitem__(self, index, value) -> None:
+        """
+        local placeholder = "__PLACEHOLDER__"
+        local append = {}
+        local temp_placeholder = 1
+        while (temp_placeholder <= #ARGV) do
+            table.insert(append, placeholder)
+            temp_placeholder = temp_placeholder + 1
+        end
+
+        local length = redis.call("LLEN", KEYS[1])
+        local function convert(data)
+            if data >= 0 then
+                return data
+            else
+                return length + data
+            end
+        end
+        local start = convert(tonumber(ARGV[1]))
+        local stop = math.min(length, convert(tonumber(ARGV[2])))
+        local step = tonumber(ARGV[3])
+        local temp_start = start
+        local count = 4
+        redis.call("RPUSH", KEYS[1], unpack(append))
+        while (temp_start < stop) do
+            redis.call("LSET", KEYS[1], temp_start, ARGV[count] or placeholder)
+            count = count + 1
+            temp_start = temp_start + step
+        end
+
+        local pointer = "__POINTER__"
+        temp_start = temp_start - step
+        while (count <= #ARGV) do
+            redis.call("LSET", KEYS[1], temp_start, pointer)
+            redis.call("LINSERT", KEYS[1], "AFTER", pointer, ARGV[count])
+            redis.call("LSET", KEYS[1], temp_start, ARGV[count - 1])
+            count = count + 1
+            temp_start = temp_start + 1
+        end
+
+        redis.call("LREM", KEYS[1], 2 * #ARGV, placeholder)
+        redis.call("LREM", KEYS[1], 1, pointer)
+        """
+        pass
+
     def __setitem__(self, index, value) -> None:
-        try:
-            self.redis.lset(self.key, index, self.dumps(value))
-        except ResponseError as e:
-            if str(e) in ("no such key", "index out of range"):
-                _ = [][0]
-            raise
+        if isinstance(index, slice) and not isinstance(value, abc.Iterable):
+            [][index] = value
+
+        if not isinstance(index, slice):
+            try:
+                self.redis.lset(self.key, index, self.dumps(value))
+            except ResponseError as e:
+                if str(e) in ("no such key", "index out of range"):
+                    _ = [][0]
+                raise
+        else:
+            self._redis__setitem__(index, value)
+
+    @run_as_lua(lambda self, index: [index.start or 0, index.stop or -1, index.step or 1])
+    def _redis__delitem__(self, index) -> None:
+        """
+        local placeholder = "__PLACEHOLDER__"
+        local length = redis.call("LLEN", KEYS[1])
+        local function convert(data)
+            if data >= 0 then
+                return data
+            else
+                return length + data
+            end
+        end
+        local start = convert(tonumber(ARGV[1]))
+        local stop = math.min(length, convert(tonumber(ARGV[2])))
+        local step = tonumber(ARGV[3])
+        local temp_start = start
+        local count = 0
+        while (temp_start < stop) do
+            redis.call("LSET", KEYS[1], temp_start, placeholder)
+            count = count + 1
+            temp_start = temp_start + step
+        end
+        redis.call("LREM", KEYS[1], count, placeholder)
+        """
+        pass
 
     def __delitem__(self, index) -> None:
-        try:
-            self.pop(index)
-        except TypeError as e:
-            if str(e) == "the JSON object must be str, bytes or bytearray, not 'NoneType'":
-                del [][index]
-            raise
-        except ResponseError as e:
-            if str(e).endswith("ERR index out of range "):
-                del [][index]
-            raise
+        if not isinstance(index, slice):
+            try:
+                self.pop(index)
+            except TypeError as e:
+                if str(e) == "the JSON object must be str, bytes or bytearray, not 'NoneType'":
+                    del [][index]
+                raise
+            except ResponseError as e:
+                if str(e).endswith("ERR index out of range "):
+                    del [][index]
+                raise
+        else:
+            self._redis__delitem__(index)
 
     def __len__(self) -> int:
         return self.redis.llen(self.key)
@@ -353,3 +434,73 @@ class RedisDict(RedisDataMixin, UserDict):
 
     def __repr__(self) -> str:
         return repr(dict(self.items()))
+
+
+class RedisDeque(RedisList, deque):
+    __class__ = deque
+
+    def appendleft(self, item) -> None:
+        self.insert(0, item)
+
+    def extendleft(self, iterable) -> None:
+        self.redis.lpush(self.key, *self.bulk_dumps(*iterable))
+
+    def popleft(self) -> Any:
+        element = self.redis.lpop(self.key)
+        if element is None:
+            deque().popleft()
+        return self.loads(element)
+
+    @run_as_lua(lambda self, n: [n])
+    def rotate(self, n: int) -> None:
+        """
+        local max = tonumber(ARGV[1])
+        local count = math.abs(max)
+        if max > 0 then
+            for i = 1, count, 1 do
+                local temp = redis.call("RPOP", KEYS[1])
+                redis.call("LPUSH", KEYS[1], temp)
+            end
+        elseif max < 0 then
+            for i = 1, count, 1 do
+                local temp = redis.call("LPOP", KEYS[1])
+                redis.call("RPUSH", KEYS[1], temp)
+            end
+        end
+        """
+        pass
+
+    def sort(self, reverse=False) -> None:
+        deque().sort()  # noqa
+
+    def __getitem__(self, item):
+        if isinstance(item, slice):
+            _ = deque()[1:2]
+        return super().__getitem__(item)
+
+    def __setitem__(self, index, value):
+        if isinstance(index, slice):
+            _ = deque()[1:2]
+        return super().__setitem__(index, value)
+
+    def __delitem__(self, index):
+        if isinstance(index, slice):
+            _ = deque()[1:2]
+        return super().__delitem__(index)
+
+    @property
+    def data(self) -> deque:
+        return deque(list(self))
+
+
+class RedisDefaultDict(RedisDict, defaultdict):
+    def __init__(self, key: str = None, *, default_factory = None, init: Any = None, schema: Any = None):
+        self.default_factory = default_factory
+        super().__init__(key, init=init, schema=schema)
+
+    def __missing__(self, key):
+        if self.default_factory is None:
+            return super().__missing__(key)
+
+        value = self[key] = self.default_factory()
+        return value

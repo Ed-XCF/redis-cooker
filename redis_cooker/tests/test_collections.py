@@ -1,11 +1,12 @@
 from copy import copy
+from collections import deque, defaultdict
 
 import pytest
 
 from ..collections import *
 from ..clients import *
 
-set_connection_url('redis://:@127.0.0.1:6379/15')
+set_connection_url('redis://:@127.0.0.1:16379/15')
 client = current_redis_client()
 
 
@@ -348,6 +349,25 @@ class TestRedisList:
         with pytest.raises(IndexError):
             l[10] = "H"
 
+        client.delete(self.key)
+        l = RedisList(self.key, init=self.original)
+        with pytest.raises(TypeError):
+            l[1:3] = 2
+
+        client.delete(self.key)
+        l = RedisList(self.key, init=self.original)
+        original = copy(self.original)
+        l[1:8] = [2,3,4]
+        original[1:8] = [2,3,4]
+        assert l == original
+
+        client.delete(self.key)
+        l = RedisList(self.key, init=self.original)
+        original = copy(self.original)
+        l[0:4] = ["a", "b", "c", "d", "e", "f", "g"]
+        original[0:4] = ["a", "b", "c", "d", "e", "f", "g"]
+        assert l == original
+
     def test___delitem__(self):
         for index in [-2, -1, 0, 1]:
             client.delete(self.key)
@@ -364,6 +384,18 @@ class TestRedisList:
         l.append("oops")
         with pytest.raises(IndexError):
             del l[10]
+
+        client.delete(self.key)
+        l = RedisList(self.key, init=self.original)
+        del l[0:100]
+
+        client.delete(self.key)
+        l = RedisList(self.key, init=self.original)
+        del l[0:5]
+
+        client.delete(self.key)
+        l = RedisList(self.key, init=self.original)
+        del l[0:]
 
     def test___reversed__(self):
         client.delete(self.key)
@@ -535,3 +567,63 @@ class TestRedisDict:
         d = RedisDict(self.key, init=self.original)
         original = copy(self.original)
         assert repr(d) == repr(original)
+
+
+class TestRedisDeque:
+    key = "Testing:RedisDeque"
+    original = ['H', 'e', 'l', 'l', 'o', 'W', 'o', 'r', 'l', 'd']
+
+    def test_appendleft(self):
+        client.delete(self.key)
+        l = RedisDeque(self.key, init=self.original)
+        l.appendleft('Z')
+        d = deque(self.original)
+        d.appendleft('Z')
+        assert l == d
+
+    def test_extendleft(self):
+        client.delete(self.key)
+        elements = ["X", "Y", "Z"]
+        l = RedisDeque(self.key, init=self.original)
+        l.extendleft(elements)
+        d = deque(self.original)
+        d.extendleft(elements)
+        assert l == d
+
+    def test_popleft(self):
+        client.delete(self.key)
+        l = RedisDeque(self.key, init=self.original)
+        d = deque(self.original)
+        d.popleft() == l.popleft()
+        assert l == d
+
+        client.delete(self.key)
+        with pytest.raises(IndexError):
+            l = RedisDeque(self.key)
+            l.popleft()
+
+    def test_rotate(self):
+        for i in [-20, -5, 0, 5, 20]:
+            print(i)
+            client.delete(self.key)
+            l = RedisDeque(self.key, init=self.original)
+            d = deque(self.original)
+            l.rotate(i)
+            d.rotate(i)
+            assert l == d
+
+
+class TestRedisDefaultDict:
+    key = "Testing:RedisDict"
+    original = {"Hello": "World"}
+
+    def test___missing__(self):
+        client.delete(self.key)
+        default_factory = lambda: "oops"
+        r = RedisDefaultDict(self.key, default_factory=default_factory, init=self.original)
+        d = defaultdict(default_factory, self.original)
+        assert r["Hello"] == d["Hello"]
+        with pytest.raises(KeyError):
+            _ = r["WOW"]
+        assert ("WOW" in r) == ("WOW" in d)
+        assert ("lu" in r) == ("lu" in d)
