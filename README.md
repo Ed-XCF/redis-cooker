@@ -27,7 +27,7 @@ or from source:
 By default, all data will use the built-in json serializer.  
 
 ## Attention!
-* If the key has existed in Redis, new object will connect to existed key instead of rewrite it  
+* If the key has existed in Redis, new object will connect to the existed key and ignore the "init" value.
 * For complex operations, redis-cooker uses lua instead of python.
 
 ## Datastructures
