@@ -356,9 +356,14 @@ class TestRedisList:
 
         client.delete(self.key)
         l = RedisList(self.key, init=self.original)
+        with pytest.raises(ValueError):
+            l[1:-1:2] = [1] * 1000
+
+        client.delete(self.key)
+        l = RedisList(self.key, init=self.original)
         original = copy(self.original)
-        l[1:8] = [2,3,4]
-        original[1:8] = [2,3,4]
+        l[1:100] = [2,3,4]
+        original[1:100] = [2,3,4]
         assert l == original
 
         client.delete(self.key)

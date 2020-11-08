@@ -15,11 +15,66 @@ or from source:
     
 ## Getting Started
 
-    >>> from redis_cooker.collections import RedisDict
-    >>> data = RedisDict("first:RedisDict", init={"a": 1, "b":2})
-    >>> for v in data.values(): print(v)
+    >>> from redis_cooker.clients import set_connection_url
+    >>> from redis_cooker.collections import RedisList
+    >>>
+    >>> set_connection_url('redis://:@127.0.0.1:6379/15')
+    >>> for i in RedisList("Testing:RedisList", init=['Hello', 'World']):
+    >>>     print(i)
+    Hello
+    World
+    
+By default, all data will use the built-in json serializer.  
 
-By default, all responses are returned as `str`.
+## Attention!
+* If the key has existed in Redis, new object will connect to existed key instead of rewrite it  
+* For complex operations, redis-cooker uses lua instead of python.
 
-## Python Version Support
-redis-cooker tested with Python 3.6 - 3.8.
+## Datastructures
+redis-cooker provide 8 datastructures in current version:
+* collections: RedisMutableSet, RedisString, RedisList, RedisDict, RedisDeque, RedisDefaultDict
+* queues: RedisQueue, RedisLifoQueue
+
+## Integration with Pydantic
+
+    >>> from typing import List
+    >>>
+    >>> from pydantic import BaseModel
+    >>> from redis_cooker.clients import set_connection_url
+    >>> from redis_cooker.collections import RedisList
+    >>>
+    >>> set_connection_url('redis://:@127.0.0.1:6379/15')
+    >>>
+    >>>
+    >>> class Person(BaseModel):
+            name: str
+            age: int
+    >>>
+    >>>
+    >>> data = [{"name": "A", "age": 15},{"name": "B", "age": "16"}]
+    >>> for i in RedisList("Testing:Pydantic", init=data, schema=Person):
+    >>>     print(i)
+    {'name': 'A', 'age': 15}
+    {'name': 'B', 'age': '16'}
+
+## Integration with DRF Serializer 
+
+    >>> from typing import List
+    >>>
+    >>> from rest_framework import serializers
+    >>> from redis_cooker.clients import set_connection_url
+    >>> from redis_cooker.collections import RedisList
+    >>>
+    >>> set_connection_url('redis://:@127.0.0.1:6379/15')
+    >>>
+    >>>
+    >>> class DRFPerson(serializers.Serializer):
+            name = serializers.CharField()
+            age = serializers.IntegerField()
+    >>>
+    >>>
+    >>> data = [{"name": "A", "age": 15},{"name": "B", "age": "16"}]
+    >>> for i in RedisList("Testing:DRF", init=data, schema=DRFPerson):
+    >>>     print(i)
+    OrderedDict([('name', 'A'), ('age', 15)])
+    OrderedDict([('name', 'B'), ('age', 16)])

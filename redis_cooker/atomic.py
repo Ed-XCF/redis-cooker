@@ -1,4 +1,3 @@
-import functools
 from typing import Callable
 
 from redis.client import Script
@@ -8,7 +7,6 @@ __all__ = ["run_as_lua"]
 
 def run_as_lua(parameter_converter: Callable) -> Callable:
     def create_lua_script(func: Callable) -> Callable:
-        @functools.wraps(func)
         def __inner(self, *args, **kwargs) -> None:
             lua_attr: str = "_lua_"
             try:

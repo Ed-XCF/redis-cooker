@@ -239,14 +239,6 @@ class RedisList(RedisDataMixin, UserList):
     @run_as_lua(lambda self, index, value: [index.start or 0, index.stop or -1, index.step or 1, *self.bulk_dumps(*value)])
     def _redis__setitem__(self, index, value) -> None:
         """
-        local placeholder = "__PLACEHOLDER__"
-        local append = {}
-        local temp_placeholder = 1
-        while (temp_placeholder <= #ARGV) do
-            table.insert(append, placeholder)
-            temp_placeholder = temp_placeholder + 1
-        end
-
         local length = redis.call("LLEN", KEYS[1])
         local function convert(data)
             if data >= 0 then
@@ -258,8 +250,26 @@ class RedisList(RedisDataMixin, UserList):
         local start = convert(tonumber(ARGV[1]))
         local stop = math.min(length, convert(tonumber(ARGV[2])))
         local step = tonumber(ARGV[3])
+
+        if step > 1 then
+            local size = math.floor((stop - start + 1) / step)
+            local extended = #ARGV - 3
+            if size < extended then
+                error(string.format("attempt to assign sequence of size %d to extended slice of size %d", size, extended))
+            end
+        end
+
         local temp_start = start
         local count = 4
+
+        local placeholder = "__PLACEHOLDER__"
+        local append = {}
+        local temp_placeholder = 1
+        while (temp_placeholder <= #ARGV) do
+            table.insert(append, placeholder)
+            temp_placeholder = temp_placeholder + 1
+        end
+
         redis.call("RPUSH", KEYS[1], unpack(append))
         while (temp_start < stop) do
             redis.call("LSET", KEYS[1], temp_start, ARGV[count] or placeholder)
@@ -294,7 +304,12 @@ class RedisList(RedisDataMixin, UserList):
                     _ = [][0]
                 raise
         else:
-            self._redis__setitem__(index, value)
+            try:
+                self._redis__setitem__(index, value)
+            except ResponseError as e:
+                if "attempt to assign sequence of size " in str(e):
+                    [1,2,3,4,5,6][1:-1:2] = [1] * 1000
+                raise
 
     @run_as_lua(lambda self, index: [index.start or 0, index.stop or -1, index.step or 1])
     def _redis__delitem__(self, index) -> None:
