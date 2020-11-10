@@ -307,8 +307,9 @@ class RedisList(RedisDataMixin, UserList):
             try:
                 self._redis__setitem__(index, value)
             except ResponseError as e:
-                if "attempt to assign sequence of size " in str(e):
-                    [1,2,3,4,5,6][1:-1:2] = [1] * 1000
+                msg = str(e)
+                if "attempt to assign sequence of size " in msg:
+                    raise ValueError(msg.split(": ")[-1])
                 raise
 
     @run_as_lua(lambda self, index: [index.start or 0, index.stop or -1, index.step or 1])

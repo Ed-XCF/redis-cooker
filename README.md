@@ -31,9 +31,8 @@ By default, all data will use the built-in json serializer.
 * For complex operations, redis-cooker uses lua instead of python.
 
 ## Datastructures
-redis-cooker provide 8 datastructures in current version:
+redis-cooker provide 6 datastructures in current version:
 * collections: RedisMutableSet, RedisString, RedisList, RedisDict, RedisDeque, RedisDefaultDict
-* queues: RedisQueue, RedisLifoQueue
 
 ## Integration with Pydantic
 
