@@ -617,6 +617,35 @@ class TestRedisDeque:
             d.rotate(i)
             assert l == d
 
+    def test_sort(self):
+        client.delete(self.key)
+        l = RedisDeque(self.key, init=self.original)
+        with pytest.raises(AttributeError):
+            l.sort()
+
+    def test___getitem__(self):
+        client.delete(self.key)
+        l = RedisDeque(self.key, init=self.original)
+        with pytest.raises(TypeError):
+            _ = l[1:2]
+        assert l[0] == self.original[0]
+
+    def test___setitem__(self):
+        client.delete(self.key)
+        l = RedisDeque(self.key, init=self.original)
+        with pytest.raises(TypeError):
+            l[1:2] = 6
+        l[0] = 7
+        assert l == deque([7, *self.original[1:]])
+
+    def test___delitem__(self):
+        client.delete(self.key)
+        l = RedisDeque(self.key, init=self.original)
+        with pytest.raises(TypeError):
+            del l[1:2]
+        del l[0]
+        assert l == deque(self.original[1:])
+
 
 class TestRedisDefaultDict:
     key = "Testing:RedisDict"
@@ -624,11 +653,14 @@ class TestRedisDefaultDict:
 
     def test___missing__(self):
         client.delete(self.key)
-        default_factory = lambda: "oops"
+
+        def default_factory():
+            return "oops"
+
         r = RedisDefaultDict(self.key, default_factory=default_factory, init=self.original)
         d = defaultdict(default_factory, self.original)
         assert r["Hello"] == d["Hello"]
-        with pytest.raises(KeyError):
-            _ = r["WOW"]
+        assert r["WOW"] == default_factory()
+        assert ("WOW" in r) != ("WOW" in d)
+        _ = d["WOW"]
         assert ("WOW" in r) == ("WOW" in d)
-        assert ("lu" in r) == ("lu" in d)

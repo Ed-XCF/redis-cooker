@@ -7,3 +7,4 @@ redis_cooker.egg-info/
 .coverage
 coverage.xml
 venv/
+htmlcov/

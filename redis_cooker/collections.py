@@ -520,3 +520,10 @@ class RedisDefaultDict(RedisDict, defaultdict):
 
         value = self[key] = self.default_factory()
         return value
+
+    def __getitem__(self, item) -> Any:
+        value = self.redis.hget(self.key, item)
+        if value is None:
+            return self.__missing__(item)
+
+        return self.loads(value)
