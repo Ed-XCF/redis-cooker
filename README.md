@@ -33,6 +33,7 @@ By default, all data will use the built-in json serializer.
 ## Datastructures
 redis-cooker provide 6 datastructures in current version:
 * collections: RedisMutableSet, RedisString, RedisList, RedisDict, RedisDeque, RedisDefaultDict
+* others: ABNTest
 
 ## Integration with Pydantic
 
@@ -77,3 +78,16 @@ redis-cooker provide 6 datastructures in current version:
     >>>     print(i)
     OrderedDict([('name', 'A'), ('age', 15)])
     OrderedDict([('name', 'B'), ('age', 16)])
+
+## Use ABNTest in your internal A/B Test
+
+    >>> from redis_cooker.abn_test import ABNTest, Choice
+    >>> from redis_cooker.clients import current_redis_client, set_connection_url
+    >>>
+    >>> set_connection_url('redis://:@127.0.0.1:6379/15')
+    >>> client = current_redis_client()
+    >>>
+    >>> topic = "lead comment"
+    >>> choices = [Choice(name="A", value=5), Choice(name="B", value=5), Choice(name="C", value=2)]
+    >>> abn_test = ABNTest(topic, choices)
+    >>> choice = abn_test.fetch()

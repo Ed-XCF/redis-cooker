@@ -343,7 +343,7 @@ class RedisList(RedisDataMixin, UserList):
             try:
                 self.pop(index)
             except TypeError as e:
-                if str(e) == "the JSON object must be str, bytes or bytearray, not NoneType":
+                if "the JSON object must be str, bytes or bytearray, not" in str(e):
                     del [][index]
                 raise
             except ResponseError as e:
