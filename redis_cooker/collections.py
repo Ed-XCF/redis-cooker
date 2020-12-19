@@ -347,7 +347,7 @@ class RedisList(RedisDataMixin, UserList):
                     del [][index]
                 raise
             except ResponseError as e:
-                if str(e).endswith("ERR index out of range"):
+                if "ERR index out of range" in str(e):
                     del [][index]
                 raise
         else:
