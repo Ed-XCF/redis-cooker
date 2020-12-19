@@ -1,6 +1,6 @@
 import itertools
 from collections import abc, UserString, UserList, UserDict, deque, defaultdict
-from typing import List, Dict, Set, Any
+from typing import List, Dict, Set, Any, Callable
 
 from redis.exceptions import ResponseError
 
@@ -343,11 +343,11 @@ class RedisList(RedisDataMixin, UserList):
             try:
                 self.pop(index)
             except TypeError as e:
-                if str(e) == "the JSON object must be str, bytes or bytearray, not 'NoneType'":
+                if str(e) == "the JSON object must be str, bytes or bytearray, not NoneType":
                     del [][index]
                 raise
             except ResponseError as e:
-                if str(e).endswith("ERR index out of range "):
+                if str(e).endswith("ERR index out of range"):
                     del [][index]
                 raise
         else:
@@ -510,7 +510,7 @@ class RedisDeque(RedisList, deque):
 
 
 class RedisDefaultDict(RedisDict, defaultdict):
-    def __init__(self, key: str = None, *, default_factory = None, init: Any = None, schema: Any = None):
+    def __init__(self, key: str = None, *, default_factory: Callable = None, init: Any = None, schema: Any = None):
         self.default_factory = default_factory
         super().__init__(key, init=init, schema=schema)
 

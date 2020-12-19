@@ -5,8 +5,8 @@ import pytest
 from pydantic import BaseModel
 from rest_framework import serializers
 
-from ..collections import *
-from ..clients import *
+from redis_cooker.collections import *
+from redis_cooker.clients import *
 
 set_connection_url('redis://:@127.0.0.1:6379/15')
 client = current_redis_client()
